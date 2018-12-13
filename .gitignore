@@ -1,0 +1,6 @@
+*.npy
+wandb/
+*.log
+boards/.ipynb_checkpoints/Untitled-checkpoint.ipynb
+*.pyc
+*.hlt
