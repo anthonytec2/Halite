@@ -4,3 +4,9 @@ wandb/
 boards/.ipynb_checkpoints/Untitled-checkpoint.ipynb
 *.pyc
 *.hlt
+gym-env/gym_halite.egg-info/PKG-INFO
+gym-env/gym_halite.egg-info/SOURCES.txt
+gym-env/gym_halite.egg-info/dependency_links.txt
+gym-env/gym_halite.egg-info/top_level.txt
+gym-env/gym_halite.egg-info/top_level.txt
+gym-env/gym_halite.egg-info/requires.txt
