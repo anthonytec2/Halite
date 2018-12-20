@@ -24,8 +24,9 @@ CHECKPOINT_FILE = "last_checkpoint.out"
 class halite_env(ExternalEnv):
     def __init__(self):
         ExternalEnv.__init__(
-            self, spaces.Discrete(4),
-            spaces.Box(low=-100, high=100, shape=(27, ), dtype=np.float32))
+            self, spaces.Discrete(7),
+            spaces.Box(low=0, high=1, shape=(20, ), dtype=np.float32))
+            
 
     def run(self):
         print("Starting policy server at {}:{}".format(SERVER_ADDRESS,
