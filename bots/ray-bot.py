@@ -15,6 +15,8 @@ import logging
 import numpy as np
 import torch
 from sklearn.decomposition import TruncatedSVD
+from collections import OrderedDict
+import traceback
 
 
 def get_func(ship, action, me):
@@ -45,14 +47,19 @@ def format_observation(game, tf):
 
 def is_valid_move(game):
     action_mask = np.ones(7)
-    if game.me.halite_amount < 1000:
-        action_mask[6] = 0
-    if game.me.halite_amount < 4000:
-        action_mask[5] = 0
+    # if game.me.halite_amount < 1000:
+    action_mask[6] = 0
+    # if game.me.halite_amount < 4000:
+    action_mask[5] = 0
+
+    logging.info(me.get_ships())
     for ship in me.get_ships():
         hal_cell = game.game_map[ship.position].halite_amount
+        logging.info('Halite Cell: '+str(hal_cell) +
+                     ' Halite Ship: ' + str(ship.halite_amount))
         if ship.halite_amount < hal_cell:
             action_mask[0:4] = 0
+    logging.info(action_mask)
     return action_mask
 
 
@@ -74,24 +81,22 @@ if __name__ == "__main__":
         me = game.me
         game_map = game.game_map
         command_queue = []
-        logging.info("START")
 
         obs = format_observation(game, tf)
         valid_mask = is_valid_move(game)
-        logging.info(obs.shape)
-        action = client.get_action(eid, np.squeeze(obs))
-        logging.info("GOT ACT")
+        obs = {
+            "action_mask": valid_mask,
+            "real_obs": obs,
+        }
+
+        action = client.get_action(eid, obs)
         logging.info(action)
+        logging.info(game.me.halite_amount)
         for ship in me.get_ships():
             command_queue.append(get_func(ship, action, me))
         game.end_turn(command_queue)
-        logging.info('UERE')
-        logging.info(me.get_ships())
         for ship in me.get_ships():
             reward = ship.halite_amount
-            logging.info('NOPE')
         client.log_returns(eid, reward)
         rewards += reward
-        logging.info('DONE')
-    logging.log("Total reward:", rewards)
     client.end_episode(eid, obs)

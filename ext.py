@@ -4,7 +4,6 @@ from __future__ import print_function
 import os
 from gym import spaces
 import numpy as np
-
 from six.moves import queue
 import threading
 import uuid
@@ -54,7 +53,8 @@ class ParametricActionsModel(Model):
             weights_initializer=normc_initializer(0.01),
             activation_fn=None,
             scope="fc_out")
-        ouput_mask = output*action_mask
+        inf_mask = tf.maximum(tf.log(action_mask), tf.float32.min)
+        ouput_mask = output+inf_mask
         return ouput_mask, last_layer
 
 
