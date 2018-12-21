@@ -62,7 +62,7 @@ class halite_env(ExternalEnv):
     def __init__(self):
         input_obs = Dict({
             "action_mask": spaces.Box(low=0, high=1, shape=(7, ), dtype=np.float32),
-            "real_obs": spaces.Box(low=0, high=1, shape=(20, ), dtype=np.float32),
+            "real_obs": spaces.Box(low=0, high=1, shape=(27, ), dtype=np.float32),
         })
         ExternalEnv.__init__(
             self, spaces.Discrete(7),

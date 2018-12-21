@@ -18,10 +18,17 @@ import torch
 from sklearn.decomposition import TruncatedSVD
 from collections import OrderedDict
 import traceback
+import pdb
+import os
 
 
 def signal_handler(sig, frame):
     logging.info('You pressed Ctrl+C!')
+    for ship in me.get_ships():
+        halite_ship = ship.halite_amount
+        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
+        reward_base = reward
+    client.log_returns(eid, reward)
     client.end_episode(eid, obs)
     sys.exit(0)
 
@@ -43,13 +50,21 @@ def get_func(ship, action, me):
         return me.shipyard.spawn()
 
 
-def format_observation(game, tf):
+def get_obs(game, tf):
     board_distro = np.zeros((game.game_map.height, game.game_map.width))
     for i in range(0, game.game_map.height):
         for j in range(0, game.game_map.width):
             board_distro[i][j] = game.game_map[Position(i, j)].halite_amount
     bd = tf.transform(np.reshape(board_distro/1000, (1, 1024)))
-    return bd
+    for ship in game.me.get_ships():
+        posagentX = ship.position.x
+        posagentY = ship.position.y
+        shipHal = ship.halite_amount
+    posdpX = game.me.shipyard.position.x
+    posdpY = game.me.shipyard.position.y
+    halite = game.me.halite_amount
+    turn_num = game.turn_number
+    return np.append(bd, [posagentX, posagentY, shipHal, posdpX, posdpY, halite, turn_num])
 
 
 def is_valid_move(game):
@@ -76,22 +91,22 @@ if __name__ == "__main__":
     game = hlt.Game()
     eid = client.start_episode(training_enabled=True)
     rewards = 0
-    tf = torch.load(
-        '/Users/anthonybisulco/Documents/Cornell/Halite/encoder.tf')
+    tf = torch.load(os.path.join(os.getcwd(), 'encoder.tf'))
     game.ready("Ray-BOT")
     logging.info(
         "Successfully created bot! My Player ID is {}.".format(game.my_id))
     game.update_frame()
     game.end_turn([game.me.shipyard.spawn()])
-
+    reward_base = game.me.halite_amount
     while True:
         game.update_frame()
         me = game.me
         game_map = game.game_map
         command_queue = []
 
-        obs = format_observation(game, tf)
+        obs = get_obs(game, tf)
         valid_mask = is_valid_move(game)
+        logging.info(obs)
         obs = {
             "action_mask": valid_mask,
             "real_obs": obs,
@@ -104,6 +119,8 @@ if __name__ == "__main__":
             command_queue.append(get_func(ship, action, me))
         game.end_turn(command_queue)
         for ship in me.get_ships():
-            reward = ship.halite_amount
+            halite_ship = ship.halite_amount
+        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
+        reward_base = reward
         client.log_returns(eid, reward)
         rewards += reward

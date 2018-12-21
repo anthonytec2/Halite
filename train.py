@@ -6,11 +6,11 @@ import gym
 import time
 import subprocess
 import sys
-
+import os
 if __name__ == "__main__":
     while True:
         p = subprocess.Popen(
-            '/Users/anthonybisulco/Documents/Cornell/Halite/run_game.sh', stdout=subprocess.PIPE, shell=True)
+            os.path.join(os.getcwd(), 'run_game.sh'), stdout=subprocess.PIPE, shell=True)
         (output, err) = p.communicate()
         # This makes the wait possible
         p_status = p.wait()
