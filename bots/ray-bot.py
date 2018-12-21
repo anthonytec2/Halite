@@ -27,9 +27,9 @@ def get_func(ship, action, me):
     elif action == 3:
         return ship.move('w')
     elif action == 4:
-        return ship.make_dropoff()
-    elif action == 5:
         return ship.stay_still()
+    elif action == 5:
+        return ship.make_dropoff()
     elif action == 6:
         return me.shipyard.spawn()
 
@@ -41,6 +41,19 @@ def format_observation(game, tf):
             board_distro[i][j] = game.game_map[Position(i, j)].halite_amount
     bd = tf.transform(np.reshape(board_distro/1000, (1, 1024)))
     return bd
+
+
+def is_valid_move(game):
+    action_mask = np.ones(7)
+    if game.me.halite_amount < 1000:
+        action_mask[6] = 0
+    if game.me.halite_amount < 4000:
+        action_mask[5] = 0
+    for ship in me.get_ships():
+        hal_cell = game.game_map[ship.position].halite_amount
+        if ship.halite_amount < hal_cell:
+            action_mask[0:4] = 0
+    return action_mask
 
 
 if __name__ == "__main__":
@@ -64,6 +77,7 @@ if __name__ == "__main__":
         logging.info("START")
 
         obs = format_observation(game, tf)
+        valid_mask = is_valid_move(game)
         logging.info(obs.shape)
         action = client.get_action(eid, np.squeeze(obs))
         logging.info("GOT ACT")
@@ -81,4 +95,3 @@ if __name__ == "__main__":
         logging.info('DONE')
     logging.log("Total reward:", rewards)
     client.end_episode(eid, obs)
-    exit(0)
