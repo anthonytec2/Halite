@@ -10,6 +10,7 @@ from hlt import constants
 from hlt.positionals import Direction
 from hlt.positionals import Position
 import random
+import signal
 import sys
 import logging
 import numpy as np
@@ -17,6 +18,12 @@ import torch
 from sklearn.decomposition import TruncatedSVD
 from collections import OrderedDict
 import traceback
+
+
+def signal_handler(sig, frame):
+    logging.info('You pressed Ctrl+C!')
+    client.end_episode(eid, obs)
+    sys.exit(0)
 
 
 def get_func(ship, action, me):
@@ -64,6 +71,7 @@ def is_valid_move(game):
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
     client = PolicyClient("http://localhost:9900")
     game = hlt.Game()
     eid = client.start_episode(training_enabled=True)
@@ -99,4 +107,3 @@ if __name__ == "__main__":
             reward = ship.halite_amount
         client.log_returns(eid, reward)
         rewards += reward
-    client.end_episode(eid, obs)
