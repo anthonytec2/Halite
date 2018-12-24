@@ -37,7 +37,7 @@ def cleanup():
     client.log_returns(eid, 0)
     client.end_episode(eid, obs)
     game.end_turn(command_queue)
-    sys.exit()
+    sys.exit(0)
 
 
 def get_func(ship, action, me):
@@ -95,7 +95,7 @@ def is_valid_move(game):
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
-    client = PolicyClient("http://localhost:9900")
+    client = PolicyClient("http://35.243.173.101:9900")
     game = hlt.Game()
     eid = client.start_episode(training_enabled=True)
     rewards = 0

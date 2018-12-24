@@ -23,7 +23,7 @@ from gym import spaces
 from gym.spaces import Box, Discrete, Dict
 import tensorflow.contrib.slim as slim
 import tensorflow as tf
-SERVER_ADDRESS = "localhost"
+SERVER_ADDRESS = "0.0.0.0"
 SERVER_PORT = 9900
 CHECKPOINT_FILE = "last_checkpoint.out"
 
@@ -96,12 +96,12 @@ if __name__ == "__main__":
             # Max num timesteps for annealing schedules. Exploration is annealed from
             # 1.0 to exploration_fraction over this number of timesteps scaled by
             # exploration_fraction
-            "schedule_max_timesteps": 100000,
+            "schedule_max_timesteps": 10000000,
             # Number of env steps to optimize for before returning
             "timesteps_per_iteration": 1000,
             # Fraction of entire training period over which the exploration rate is
             # annealed
-            "exploration_fraction": 0.1,
+            "exploration_fraction": 0.8,
             # Final value of random action probability
             "exploration_final_eps": 0.02,
             # Update the target network every `target_network_update_freq` steps.
