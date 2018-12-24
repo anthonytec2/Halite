@@ -9,6 +9,9 @@ import threading
 import uuid
 import ray
 from ray.rllib.agents.dqn import DQNAgent
+from ray.rllib.agents.ppo import PPOAgent
+import trace
+import sys
 from ray.rllib.env.external_env import ExternalEnv
 from ray.rllib.utils.policy_server import PolicyServer
 from ray.rllib.models.model import Model
@@ -38,7 +41,8 @@ class ParametricActionsModel(Model):
         obs = input_dict["obs"]["real_obs"]
         # Standard FC net component.
         last_layer = obs
-        hiddens = [256, 256]
+        hiddens = [20, 20, 15, 15, 10, 10, 9, 9]
+        # hiddens = [256, 256]
         for i, size in enumerate(hiddens):
             label = "fc{}".format(i)
             last_layer = slim.fully_connected(
@@ -85,13 +89,61 @@ if __name__ == "__main__":
     dqn = DQNAgent(
         env="srv",
         config={
-            "hiddens": [],  # don't postprocess the action scores
             # Use a single process to avoid needing to set up a load balancer
             "num_workers": 0,
-            # Configure the agent to run short iterations for debugging
-            "exploration_fraction": 0.01,
-            "learning_starts": 100,
-            "timesteps_per_iteration": 200,
+            "hiddens": [],
+            # === Exploration ===
+            # Max num timesteps for annealing schedules. Exploration is annealed from
+            # 1.0 to exploration_fraction over this number of timesteps scaled by
+            # exploration_fraction
+            "schedule_max_timesteps": 100000,
+            # Number of env steps to optimize for before returning
+            "timesteps_per_iteration": 1000,
+            # Fraction of entire training period over which the exploration rate is
+            # annealed
+            "exploration_fraction": 0.1,
+            # Final value of random action probability
+            "exploration_final_eps": 0.02,
+            # Update the target network every `target_network_update_freq` steps.
+            "target_network_update_freq": 500,
+
+            # === Replay buffer ===
+            # Size of the replay buffer. Note that if async_updates is set, then
+            # each worker will have a replay buffer of this size.
+            "buffer_size": 50000,
+            # If True prioritized replay buffer will be used.
+            "prioritized_replay": True,
+            # Alpha parameter for prioritized replay buffer.
+            "prioritized_replay_alpha": 0.6,
+            # Beta parameter for sampling from prioritized replay buffer.
+            "prioritized_replay_beta": 0.4,
+            # Fraction of entire training period over which the beta parameter is
+            # annealed
+            "beta_annealing_fraction": 0.2,
+            # Final value of beta
+            "final_prioritized_replay_beta": 0.4,
+            # Epsilon to add to the TD errors when updating priorities.
+            "prioritized_replay_eps": 1e-6,
+            # Whether to LZ4 compress observations
+            "compress_observations": True,
+
+            # === Optimization ===
+            # Learning rate for adam optimizer
+            "lr": 1e-3,
+            # Adam epsilon hyper parameter
+            "adam_epsilon": 1e-8,
+            # If not None, clip gradients during optimization at this value
+            "grad_norm_clipping": 40,
+            # How many steps of the model to sample before learning starts.
+            "learning_starts": 1000,
+            # Update the replay buffer with this many samples at once. Note that
+            # this setting applies per-worker if num_workers > 1.
+            "sample_batch_size": 4,
+            # Size of a batched sampled from replay buffer for training. Note that
+            # if async_updates is set, then each worker returns gradients for a
+            # batch of this size.
+            "train_batch_size": 32,
+
             "model": {
                 "custom_model": "pa_model",
                 "custom_options": {},  # extra options to pass to your model
@@ -104,8 +156,13 @@ if __name__ == "__main__":
         print("Restoring from checkpoint path", checkpoint_path)
         dqn.restore(checkpoint_path)
 
+    # run the new command using the given tracer
+
+    # make a report, placing output in the current directory
+
     # Serving and training loop
     while True:
+
         print(pretty_print(dqn.train()))
         checkpoint_path = dqn.save()
         print("Last checkpoint", checkpoint_path)

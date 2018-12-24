@@ -24,13 +24,20 @@ import os
 
 def signal_handler(sig, frame):
     logging.info('You pressed Ctrl+C!')
+    '''
     for ship in me.get_ships():
         halite_ship = ship.halite_amount
         reward = (game.me.halite_amount+.01*halite_ship)-reward_base
         reward_base = reward
     client.log_returns(eid, reward)
+    '''
+
+
+def cleanup():
+    client.log_returns(eid, 0)
     client.end_episode(eid, obs)
-    sys.exit(0)
+    game.end_turn(command_queue)
+    sys.exit()
 
 
 def get_func(ship, action, me):
@@ -56,14 +63,15 @@ def get_obs(game, tf):
         for j in range(0, game.game_map.width):
             board_distro[i][j] = game.game_map[Position(i, j)].halite_amount
     bd = tf.transform(np.reshape(board_distro/1000, (1, 1024)))
+    logging.info(game.me.get_ships())
     for ship in game.me.get_ships():
         posagentX = ship.position.x
         posagentY = ship.position.y
-        shipHal = ship.halite_amount
+        shipHal = ship.halite_amount/1000
     posdpX = game.me.shipyard.position.x
     posdpY = game.me.shipyard.position.y
-    halite = game.me.halite_amount
-    turn_num = game.turn_number
+    halite = game.me.halite_amount/1e5
+    turn_num = game.turn_number/constants.MAX_TURNS
     return np.append(bd, [posagentX, posagentY, shipHal, posdpX, posdpY, halite, turn_num])
 
 
@@ -103,7 +111,7 @@ if __name__ == "__main__":
         me = game.me
         game_map = game.game_map
         command_queue = []
-
+        logging.info('IDK')
         obs = get_obs(game, tf)
         valid_mask = is_valid_move(game)
         logging.info(obs)
@@ -117,6 +125,8 @@ if __name__ == "__main__":
         logging.info(game.me.halite_amount)
         for ship in me.get_ships():
             command_queue.append(get_func(ship, action, me))
+        if game.turn_number == constants.MAX_TURNS:
+            cleanup()
         game.end_turn(command_queue)
         for ship in me.get_ships():
             halite_ship = ship.halite_amount
