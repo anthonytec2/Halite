@@ -98,7 +98,10 @@ if __name__ == "__main__":
     client = PolicyClient("http://35.243.173.101:9900")
     game = hlt.Game()
     eid = client.start_episode(training_enabled=True)
+    #TODO: Read any and all initial values from a config or some specified
+    #      format for the sake of using prior runs when diesired.
     rewards = 0
+    alpha = 0.001
     tf = torch.load(os.path.join(os.getcwd(), 'encoder.tf'))
     game.ready("Ray-BOT")
     logging.info(
@@ -130,7 +133,7 @@ if __name__ == "__main__":
         game.end_turn(command_queue)
         for ship in me.get_ships():
             halite_ship = ship.halite_amount
-        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
+        reward = (game.me.halite_amount+.alpha*halite_ship)-reward_base
         reward_base = reward
         client.log_returns(eid, reward)
         rewards += reward
