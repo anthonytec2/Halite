@@ -17,7 +17,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     while True:
         p = subprocess.Popen(
-            os.path.join(os.getcwd(), f'run_game.sh {args.num_jobs} {args.ip}'), stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+            os.path.join(os.getcwd(), 'run_game.sh {} {}'.format(args.num_jobs, args.ip)), stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
         (output, err) = p.communicate()
         # This makes the wait possible
         p_status = p.wait()
