@@ -1,36 +1,15 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import argparse
-import gym
-
 from ray.rllib.utils.policy_client import PolicyClient
 import hlt
 from hlt import constants
 from hlt.positionals import Direction
 from hlt.positionals import Position
-import random
-import signal
 import sys
 import logging
 import numpy as np
 import torch
 from sklearn.decomposition import TruncatedSVD
-from collections import OrderedDict
-import traceback
-import pdb
 import os
-
-
-def signal_handler(sig, frame):
-    logging.info('You pressed Ctrl+C!')
-    '''
-    for ship in me.get_ships():
-        halite_ship = ship.halite_amount
-        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
-        reward_base = reward
-    client.log_returns(eid, reward)
-    '''
 
 
 def cleanup():
@@ -94,14 +73,10 @@ def is_valid_move(game):
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, signal_handler)
     client = PolicyClient("http://35.243.173.101:9900")
     game = hlt.Game()
     eid = client.start_episode(training_enabled=True)
-    #TODO: Read any and all initial values from a config or some specified
-    #      format for the sake of using prior runs when diesired.
     rewards = 0
-    alpha = 0.001
     tf = torch.load(os.path.join(os.getcwd(), 'encoder.tf'))
     game.ready("Ray-BOT")
     logging.info(
@@ -114,18 +89,14 @@ if __name__ == "__main__":
         me = game.me
         game_map = game.game_map
         command_queue = []
-        logging.info('IDK')
         obs = get_obs(game, tf)
         valid_mask = is_valid_move(game)
-        logging.info(obs)
         obs = {
             "action_mask": valid_mask,
             "real_obs": obs,
         }
 
         action = client.get_action(eid, obs)
-        logging.info(action)
-        logging.info(game.me.halite_amount)
         for ship in me.get_ships():
             command_queue.append(get_func(ship, action, me))
         if game.turn_number == constants.MAX_TURNS:
@@ -133,7 +104,7 @@ if __name__ == "__main__":
         game.end_turn(command_queue)
         for ship in me.get_ships():
             halite_ship = ship.halite_amount
-        reward = (game.me.halite_amount+alpha*halite_ship)-reward_base
+        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
         reward_base = reward
         client.log_returns(eid, reward)
         rewards += reward
