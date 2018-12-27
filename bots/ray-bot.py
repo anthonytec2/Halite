@@ -133,7 +133,7 @@ if __name__ == "__main__":
         game.end_turn(command_queue)
         for ship in me.get_ships():
             halite_ship = ship.halite_amount
-        reward = (game.me.halite_amount+.alpha*halite_ship)-reward_base
+        reward = (game.me.halite_amount+alpha*halite_ship)-reward_base
         reward_base = reward
         client.log_returns(eid, reward)
         rewards += reward
