@@ -76,8 +76,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--ip", help="ip address of server", default="35.243.173.101",
                         type=str)
+    parser.add_argument("--port", help="Ports IP", default="9900", type=str)
     args = parser.parse_args()
-    client = PolicyClient("http://{}:9900".format(args.ip))
+    client = PolicyClient("http://{}:{}".format(args.ip, args.port))
     game = hlt.Game()
     eid = client.start_episode(training_enabled=True)
     rewards = 0
