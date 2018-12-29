@@ -24,7 +24,7 @@ from gym.spaces import Box, Discrete, Dict
 import tensorflow.contrib.slim as slim
 import tensorflow as tf
 SERVER_ADDRESS = "0.0.0.0"
-SERVER_PORT = 9901
+SERVER_PORT = 9902
 CHECKPOINT_FILE = "last_checkpoint.out"
 
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             # Learning rate schedule
             "lr_schedule": None,
             # Share layers for value function
-            "vf_share_layers": False,
+            "vf_share_layers": True,
             # Coefficient of the value function loss
             "vf_loss_coeff": 1.0,
             # Coefficient of the entropy regularizer
@@ -124,7 +124,7 @@ if __name__ == "__main__":
             # Whether to rollout "complete_episodes" or "truncate_episodes"
             "batch_mode": "truncate_episodes",
             # Which observation filter to apply to the observation
-            "observation_filter": "MeanStdFilter",
+            "observation_filter": "NoFilter",
             # Uses the sync samples optimizer instead of the multi-gpu one. This does
             # not support minibatches.
             "simple_optimizer": False,
