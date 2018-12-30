@@ -23,10 +23,12 @@ from gym import spaces
 from gym.spaces import Box, Discrete, Dict
 import tensorflow.contrib.slim as slim
 import tensorflow as tf
+import subprocess
+import numpy as np
 SERVER_ADDRESS = "0.0.0.0"
 SERVER_PORT = 9900
 CHECKPOINT_FILE = "last_checkpoint.out"
-
+used_ports=[]
 
 class ParametricActionsModel(Model):
     """Parametric action model that handles the dot product and masking.
@@ -70,17 +72,18 @@ class halite_env(ExternalEnv):
         })
         ExternalEnv.__init__(
             self, spaces.Discrete(7),
-            input_obs)
+            input_obs,max_concurrent=1000)
 
     def run(self):
+        PORT=np.random.randint(9900,19000)
         print("Starting policy server at {}:{}".format(SERVER_ADDRESS,
-                                                       SERVER_PORT))
-        server = PolicyServer(self, SERVER_ADDRESS, SERVER_PORT)
+                                                       PORT))
+        server = PolicyServer(self, SERVER_ADDRESS, PORT)
+        #subprocess.Popen('python3 train.py --port={} --num_jobs=1'.format(PORT), shell=True)
         server.serve_forever()
 
-
 if __name__ == "__main__":
-    ray.init()
+    ray.init(redis_address="10.142.0.3:23998")
     ModelCatalog.register_custom_model("pa_model", ParametricActionsModel)
     register_env("srv", lambda _: halite_env())
 
@@ -90,13 +93,15 @@ if __name__ == "__main__":
         env="srv",
         config={
             # Use a single process to avoid needing to set up a load balancer
-            "num_workers": 0,
+            "num_workers": 1,
+            "num_cpus_per_worker": 16,
+            "num_gpus": 1,
             "hiddens": [],
             # === Exploration ===
             # Max num timesteps for annealing schedules. Exploration is annealed from
             # 1.0 to exploration_fraction over this number of timesteps scaled by
             # exploration_fraction
-            "schedule_max_timesteps": 10000000,
+            "schedule_max_timesteps": 100000000,
             # Number of env steps to optimize for before returning
             "timesteps_per_iteration": 1000,
             # Fraction of entire training period over which the exploration rate is
