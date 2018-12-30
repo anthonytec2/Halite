@@ -13,21 +13,19 @@ import torch
 from sklearn.decomposition import TruncatedSVD
 import os
 import psutil
+import time
 
 
 def cleanup():
     for ship in me.get_ships():
         halite_ship = ship.halite_amount
-    reward = (game.me.halite_amount+.01*halite_ship)-reward_base
-    reward_base = reward
     obs = get_obs(game, tf)
     valid_mask = is_valid_move(game)
     new_ar = np.hstack((obs, valid_mask))
-    send_obs = np.append(new_ar, [reward, 1])
+    send_obs = np.append(new_ar, [0, 1]).astype(np.float32)
     s.send(send_obs.tostring())
-
     game.end_turn(command_queue)
-    sys.exit(0)
+    sys.exit(1)
 
 
 def get_func(ship, action, me):
@@ -90,15 +88,19 @@ args = parser.parse_args()
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, args.port))
+    logging.info('Established Connection Networking.py')
     game = hlt.Game()
     tf = torch.load(os.path.join(os.getcwd(), 'bots/encoder.tf'))
     game.ready("Ray-BOT-Networking-V3")
     game.update_frame()
     game.end_turn([game.me.shipyard.spawn()])
-    reward_base = game.me.halite_amount
     game.update_frame()
+    for ship in game.me.get_ships():
+        halite_ship = ship.halite_amount
+    reward_base = game.me.halite_amount+.01*halite_ship
     obs = get_obs(game, tf)
     s.send(obs.tostring())
+    time.sleep(1)
     while True:
         data = s.recv(24).decode()
         action = int(data.split(' ')[1])
@@ -118,5 +120,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         obs = get_obs(game, tf)
         valid_mask = is_valid_move(game)
         new_ar = np.hstack((obs, valid_mask))
-        send_obs = np.append(new_ar, [reward, 0])
+        send_obs = np.append(new_ar, [reward, 0]).astype(np.float32)
         s.send(send_obs.tostring())

@@ -20,8 +20,8 @@ class HaliteEnv(gym.Env):
     def step(self, action):
         act_msg = 'A '+str(action)
         self.conn.send(act_msg.encode("utf-8"))
-        data = self.conn.recv(4096)
-        res = np.frombuffer(data)
+        data = self.conn.recv(249)
+        res = np.frombuffer(data, dtype=np.float32)
         obs = res[:27]
         mask = res[27:34]
         reward = res[-2]
@@ -38,8 +38,8 @@ class HaliteEnv(gym.Env):
 
     def reset(self):
         self.establish_conn()
-        data = self.conn.recv(4096)
-        return np.frombuffer(data)
+        data = self.conn.recv(249)
+        return np.frombuffer(data, dtype=np.float32)
 
     def establish_conn(self):
         try:
@@ -54,20 +54,20 @@ class HaliteEnv(gym.Env):
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.bind((HOST, PORT))
-        print(f'Bound Localhost Port: {self.s.getsockname()[1]}')
+        # print(f'Bound Localhost Port: {self.s.getsockname()[1]}')
         cmd = f'./halite --replay-directory replays/ -vvv --width 32 --height 32 "python3 bots/networking.py --port={self.s.getsockname()[1]}" "python3 bots/Bot2.py" --no-timeout'
         self.res = psutil.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         self.s.listen()
         self.conn, self.addr = self.s.accept()
+        # print('ESTABLISHED CONNECTION HALITE_ENV.PY')
 
 
 if __name__ == '__main__':
     new_env = HaliteEnv()
     new_env.reset()
-    new_env.step(1)
-    time.sleep(0.3)
-    new_env.step(1)
-    time.sleep(0.3)
-    new_env.step(1)
-    time.sleep(0.3)
-    new_env.s.close()
+    done = False
+    while True:
+        obs, reward, done, _ = new_env.step(4)
+        if done:
+            new_env.s.close()
+            sys.exit(1)
