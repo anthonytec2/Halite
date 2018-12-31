@@ -8,14 +8,23 @@ import psutil
 import socket
 import sys
 import numpy as np
-HOST = '127.0.0.1'
-PORT = 0
+from gym.spaces import Box, Discrete, Dict
 
 import time
 
+HOST = '127.0.0.1'
+PORT = 0
 
 class HaliteEnv(gym.Env):
     metadata = {'render.modes': ['human']}
+
+    def __init__(self):
+         input_obs = Dict({
+            "action_mask": spaces.Box(low=0, high=1, shape=(7, ), dtype=np.float32),
+            "real_obs": spaces.Box(low=0, high=1, shape=(27, ), dtype=np.float32),
+        })
+        self.action_space = spaces.Discrete(7)
+        self.observation_space = input_obs
 
     def step(self, action):
         act_msg = 'A '+str(action)
