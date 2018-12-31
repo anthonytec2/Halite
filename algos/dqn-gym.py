@@ -31,8 +31,17 @@ import tensorflow.contrib.slim as slim
 import tensorflow as tf
 import subprocess
 import numpy as np
+from ray.tune.registry import register_env
+from logging.config import fileConfig
+
+
+def env_creator(env_config):
+    return HaliteEnv({})
+
+
 HOST = '127.0.0.1'
 PORT = 0
+CHECKPOINT_FILE = "last_checkpoint.out"
 
 
 class HaliteEnv(gym.Env):
@@ -45,6 +54,7 @@ class HaliteEnv(gym.Env):
         })
         self.action_space = spaces.Discrete(7)
         self.observation_space = input_obs
+        self.logger = logging.getLogger(__name__)
 
     def step(self, action):
         act_msg = 'A '+str(action)
@@ -56,16 +66,23 @@ class HaliteEnv(gym.Env):
         reward = res[-2]
         done = res[-1]
         done = True if done == 1 else False
-        obs = {
+        obs_ret = {
             "action_mask": mask,
             "real_obs": obs,
         }
-        return obs, reward, done, {}
+        return obs_ret, reward, done, {}
 
     def reset(self):
         self.establish_conn()
         data = self.conn.recv(249)
-        return np.frombuffer(data, dtype=np.float32)
+        res = np.frombuffer(data, dtype=np.float32)
+        obs = res[:27]
+        mask = res[27:34]
+        obs_ret = {
+            "action_mask": mask,
+            "real_obs": obs,
+        }
+        return obs_ret
 
     def establish_conn(self):
         try:
@@ -118,8 +135,9 @@ class ParametricActionsModel(Model):
 
 ray.init()
 ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
+register_env("halite_env", env_creator)
 dqn = DQNAgent(
-    env=HaliteEnv,
+    env="halite_env",
     config={
         "env_config": {},
         # Use a single process to avoid needing to set up a load balancer
@@ -183,7 +201,7 @@ dqn = DQNAgent(
 # Attempt to restore from checkpoint if possible.
 if os.path.exists(CHECKPOINT_FILE):
     checkpoint_path = open(CHECKPOINT_FILE).read()
-    print("Restoring from checkpoint path", checkpoint_path)
+    # print("Restoring from checkpoint path", checkpoint_path)
     dqn.restore(checkpoint_path)
 
 # run the new command using the given tracer
@@ -192,9 +210,8 @@ if os.path.exists(CHECKPOINT_FILE):
 
 # Serving and training loop
 while True:
-
-    print(pretty_print(dqn.train()))
+    dqn.train()
     checkpoint_path = dqn.save()
-    print("Last checkpoint", checkpoint_path)
+    # print("Last checkpoint", checkpoint_path)
     with open(CHECKPOINT_FILE, "w") as f:
         f.write(checkpoint_path)
