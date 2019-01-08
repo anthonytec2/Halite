@@ -33,6 +33,7 @@ import subprocess
 import numpy as np
 from ray.tune.registry import register_env
 from logging.config import fileConfig
+import zmq
 
 
 def env_creator(env_config):
@@ -54,12 +55,11 @@ class HaliteEnv(gym.Env):
         })
         self.action_space = spaces.Discrete(7)
         self.observation_space = input_obs
-        self.logger = logging.getLogger(__name__)
 
     def step(self, action):
         act_msg = 'A '+str(action)
-        self.conn.send(act_msg.encode("utf-8"))
-        data = self.conn.recv(249)
+        self.socket.send(act_msg.encode("utf-8"))
+        data = self.socket.recv()
         res = np.frombuffer(data, dtype=np.float32)
         obs = res[:27]
         mask = res[27:34]
@@ -70,11 +70,14 @@ class HaliteEnv(gym.Env):
             "action_mask": mask,
             "real_obs": obs,
         }
+        # if done:
+        # self.s.close()
+        # self.res.kill()
         return obs_ret, reward, done, {}
 
     def reset(self):
         self.establish_conn()
-        data = self.conn.recv(249)
+        data = self.socket.recv()
         res = np.frombuffer(data, dtype=np.float32)
         obs = res[:27]
         mask = res[27:34]
@@ -85,23 +88,21 @@ class HaliteEnv(gym.Env):
         return obs_ret
 
     def establish_conn(self):
-        try:
-            self.s.close()
-            del self.s, self.conn, self.addr
-        except:
-            o = 2
-        try:
-            self.res.kill()
-        except:
-            o = 1
-
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.bind((HOST, PORT))
+       # server_addr = f'/tmp/{np.random.random()}.sock'
+        # if os.path.exists(server_addr):
+        #    os.unlink(server_addr)
+        #self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        # self.s.bind(server_addr)  # (HOST, PORT))
         # print(f'Bound Localhost Port: {self.s.getsockname()[1]}')
-        cmd = f'./halite --replay-directory replays/ -vvv --width 32 --height 32 "python3 bots/networking.py --port={self.s.getsockname()[1]}" "python3 bots/Bot2.py" --no-timeout'
-        self.res = psutil.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-        self.s.listen()
-        self.conn, self.addr = self.s.accept()
+        context = zmq.Context()
+        self.socket = context.socket(zmq.PAIR)
+        rnd_port = self.socket.bind_to_random_port("tcp://*")
+        cmd = f'./halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={rnd_port}" "python3 bots/Bot2.py" &'
+        self.res = psutil.Popen(
+            cmd, shell=True)
+        # self.s.listen()
+        #self.conn, self.addr = self.s.accept()
+        logging.info('Connected')
         # print('ESTABLISHED CONNECTION HALITE_ENV.PY')
 
 
