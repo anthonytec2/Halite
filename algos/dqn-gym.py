@@ -1,8 +1,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
-import logging
 import subprocess
 import psutil
 import socket
@@ -32,7 +30,6 @@ import tensorflow as tf
 import subprocess
 import numpy as np
 from ray.tune.registry import register_env
-from logging.config import fileConfig
 import zmq
 
 
@@ -70,9 +67,6 @@ class HaliteEnv(gym.Env):
             "action_mask": mask,
             "real_obs": obs,
         }
-        # if done:
-        # self.s.close()
-        # self.res.kill()
         return obs_ret, reward, done, {}
 
     def reset(self):
@@ -88,22 +82,17 @@ class HaliteEnv(gym.Env):
         return obs_ret
 
     def establish_conn(self):
-       # server_addr = f'/tmp/{np.random.random()}.sock'
-        # if os.path.exists(server_addr):
-        #    os.unlink(server_addr)
-        #self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        # self.s.bind(server_addr)  # (HOST, PORT))
-        # print(f'Bound Localhost Port: {self.s.getsockname()[1]}')
+        try:
+            socket.close()
+        except:
+            e = 1
         context = zmq.Context()
         self.socket = context.socket(zmq.PAIR)
-        rnd_port = self.socket.bind_to_random_port("tcp://*")
-        cmd = f'./halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={rnd_port}" "python3 bots/Bot2.py" &'
+        rnd_num = str(np.random.random())
+        rnd_port = self.socket.bind(f"ipc:///tmp/v{rnd_num}")
+        cmd = f'./halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={rnd_num}" "python3 bots/Bot2.py" &'
         self.res = psutil.Popen(
             cmd, shell=True)
-        # self.s.listen()
-        #self.conn, self.addr = self.s.accept()
-        logging.info('Connected')
-        # print('ESTABLISHED CONNECTION HALITE_ENV.PY')
 
 
 class ParametricActionsModel(Model):
@@ -142,7 +131,7 @@ dqn = DQNAgent(
     config={
         "env_config": {},
         # Use a single process to avoid needing to set up a load balancer
-        "num_workers": 1,
+        "num_workers": 0,
         "num_cpus_per_worker": 1,
         "num_gpus": 0,
         "hiddens": [],
@@ -162,7 +151,7 @@ dqn = DQNAgent(
         # each worker will have a replay buffer of this size.
         "buffer_size": 50000,
         # If True prioritized replay buffer will be used.
-        "prioritized_replay": True,
+        "prioritized_replay": False,
         # Alpha parameter for prioritized replay buffer.
         "prioritized_replay_alpha": 0.6,
         # Beta parameter for sampling from prioritized replay buffer.
@@ -202,7 +191,7 @@ dqn = DQNAgent(
 # Attempt to restore from checkpoint if possible.
 if os.path.exists(CHECKPOINT_FILE):
     checkpoint_path = open(CHECKPOINT_FILE).read()
-    # print("Restoring from checkpoint path", checkpoint_path)
+    print("Restoring from checkpoint path", checkpoint_path)
     dqn.restore(checkpoint_path)
 
 # run the new command using the given tracer
@@ -213,6 +202,6 @@ if os.path.exists(CHECKPOINT_FILE):
 while True:
     dqn.train()
     checkpoint_path = dqn.save()
-    # print("Last checkpoint", checkpoint_path)
+    print("Last checkpoint", checkpoint_path)
     with open(CHECKPOINT_FILE, "w") as f:
         f.write(checkpoint_path)

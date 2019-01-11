@@ -16,6 +16,8 @@ import psutil
 import time
 import zmq
 
+HOST = '127.0.0.1'
+
 
 def cleanup():
     for ship in me.get_ships():
@@ -26,6 +28,7 @@ def cleanup():
     send_obs = np.append(new_ar, [0, 1]).astype(np.float32)
     socket.send(send_obs.tostring())
     game.end_turn(command_queue)
+    socket.close()
     sys.exit(1)
 
 
@@ -52,7 +55,6 @@ def get_obs(game, tf):
         for j in range(0, game.game_map.width):
             board_distro[i][j] = game.game_map[Position(i, j)].halite_amount
     bd = tf.transform(np.reshape(board_distro/1000, (1, 1024)))
-    logging.info(game.me.get_ships())
     for ship in game.me.get_ships():
         posagentX = ship.position.x
         posagentY = ship.position.y
@@ -71,51 +73,68 @@ def is_valid_move(game):
     # if game.me.halite_amount < 4000:
     action_mask[5] = 0
 
-    logging.info(me.get_ships())
     for ship in me.get_ships():
         hal_cell = game.game_map[ship.position].halite_amount
-        logging.info('Halite Cell: '+str(hal_cell) +
-                     ' Halite Ship: ' + str(ship.halite_amount))
         if ship.halite_amount < hal_cell:
             action_mask[0:4] = 0
-    logging.info(action_mask)
     return action_mask
 
 
-HOST = '127.0.0.1'
+# ARGPARSE
 parser = argparse.ArgumentParser()
-parser.add_argument("--port", help="Ports IP", default=9900, type=int)
+parser.add_argument("--port", help="Ports IP", default=9900, type=str)
 args = parser.parse_args()
+
+# Socket Stuff
 context = zmq.Context()
-
 socket = context.socket(zmq.PAIR)
-socket.connect(f"tcp://localhost:{args.port}")
+socket.connect(f"ipc:///tmp/v{args.port}")
 
-logging.info('Established Connection Networking.py')
+
+# Start Up Game
+#logger.info('Established Connection Networking.py')
 game = hlt.Game()
-tf = torch.load(os.path.join(os.getcwd(), 'bots/encoder.tf'))
-game.ready("Ray-BOT-Networking-V3")
+game.ready("Ray-BOT-Networking-V4")
 game.update_frame()
+
+# Spawn Ship and Start new turn
 game.end_turn([game.me.shipyard.spawn()])
 game.update_frame()
+i = 0
+# Send first observation to reset
 for ship in game.me.get_ships():
     halite_ship = ship.halite_amount
 reward_base = game.me.halite_amount+.01*halite_ship
+tf = torch.load(os.path.join(os.getcwd(), 'bots/encoder.tf'))
 obs = get_obs(game, tf)
-socket.send(obs.tostring())
-time.sleep(1)
+res = np.ones(7)
+res[6] = 0
+res[5] = 0
+new_ar = np.hstack((obs, res)).astype(np.float32)
+socket.send(new_ar.tostring())
+
+
 while True:
+    i += 1
+    # RX Action and Peform
     data = socket.recv(24).decode()
     action = int(data.split(' ')[1])
+
+    # Update Constants and get next actions
     me = game.me
     game_map = game.game_map
     command_queue = []
     for ship in me.get_ships():
         command_queue.append(get_func(ship, action, me))
+    # Check if last turn if so run cleanup
     if game.turn_number == constants.MAX_TURNS:
         cleanup()
+
+    # End the turn and update commands
     game.end_turn(command_queue)
     game.update_frame()
+
+    # Send next valid observations
     for ship in me.get_ships():
         halite_ship = ship.halite_amount
     reward = (game.me.halite_amount+.01*halite_ship)-reward_base
