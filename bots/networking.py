@@ -88,7 +88,7 @@ args = parser.parse_args()
 # Socket Stuff
 context = zmq.Context()
 socket = context.socket(zmq.PAIR)
-socket.connect(f"ipc:///tmp/v{args.port}")
+socket.connect("ipc:///tmp/v{}".format(args.port))
 
 
 # Start Up Game

@@ -89,8 +89,8 @@ class HaliteEnv(gym.Env):
         context = zmq.Context()
         self.socket = context.socket(zmq.PAIR)
         rnd_num = str(np.random.random())
-        rnd_port = self.socket.bind(f"ipc:///tmp/v{rnd_num}")
-        cmd = f'./halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={rnd_num}" "python3 bots/Bot2.py" &'
+        rnd_port = self.socket.bind("ipc:///tmp/v{}".format(rnd_num))
+        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={}" "python3 bots/Bot2.py" &'.format(rnd_num)
         self.res = psutil.Popen(
             cmd, shell=True)
 
