@@ -1,22 +1,17 @@
 import argparse
-import sys
-import socket
 import logging
-import argparse
-from ray.rllib.utils.policy_client import PolicyClient
+import os
+import socket
+import sys
+
+import numpy as np
+import zmq
+from sklearn.decomposition import TruncatedSVD
+
 import hlt
 from hlt import constants
-from hlt.positionals import Direction
 from hlt.positionals import Position
-import numpy as np
-import torch
-from sklearn.decomposition import TruncatedSVD
-import os
-import psutil
-import time
-import zmq
-
-HOST = '127.0.0.1'
+import pickle
 
 
 def cleanup():
@@ -105,7 +100,8 @@ i = 0
 for ship in game.me.get_ships():
     halite_ship = ship.halite_amount
 reward_base = game.me.halite_amount+.01*halite_ship
-tf = torch.load(os.path.join(os.getcwd(), 'bots/encoder.tf'))
+with open(os.path.join(os.getcwd(), 'bots/encoder.pkl'), 'rb') as f:
+    tf = pickle.load(f)
 obs = get_obs(game, tf)
 res = np.ones(7)
 res[6] = 0
@@ -118,7 +114,7 @@ while True:
     i += 1
     # RX Action and Peform
     data = socket.recv(24).decode()
-    action = int(data.split(' ')[1])
+    action = int(data)
 
     # Update Constants and get next actions
     me = game.me

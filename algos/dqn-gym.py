@@ -1,52 +1,31 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-import subprocess
-import psutil
-import socket
-import time
+from __future__ import absolute_import, division, print_function
+
 import os
-import trace
-import sys
-from six.moves import queue
-import threading
-import uuid
+import gym
+import numpy as np
+import psutil
 import ray
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
+import zmq
+from gym import spaces
 from ray.rllib.agents.dqn import DQNAgent
-from ray.rllib.env.external_env import ExternalEnv
-from ray.rllib.utils.policy_server import PolicyServer
-from ray.rllib.models.model import Model
 from ray.rllib.models import Model, ModelCatalog
-from ray.rllib.models.misc import normc_initializer, get_activation_fn
+from ray.rllib.models.misc import get_activation_fn, normc_initializer
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
-import gym
-from gym import spaces
-from gym import error, spaces, utils
-from gym.utils import seeding
-from gym.spaces import Box, Discrete, Dict
-import tensorflow.contrib.slim as slim
-import tensorflow as tf
-import subprocess
-import numpy as np
-from ray.tune.registry import register_env
-import zmq
+
+CHECKPOINT_FILE = "last_checkpoint.out"
 
 
 def env_creator(env_config):
     return HaliteEnv({})
 
 
-HOST = '127.0.0.1'
-PORT = 0
-CHECKPOINT_FILE = "last_checkpoint.out"
-
-
 class HaliteEnv(gym.Env):
-    metadata = {'render.modes': ['human']}
 
     def __init__(self, config):
-        input_obs = Dict({
+        input_obs = spaces.Dict({
             "action_mask": spaces.Box(low=0, high=1, shape=(7, ), dtype=np.float32),
             "real_obs": spaces.Box(low=0, high=1, shape=(27, ), dtype=np.float32),
         })
@@ -54,7 +33,7 @@ class HaliteEnv(gym.Env):
         self.observation_space = input_obs
 
     def step(self, action):
-        act_msg = 'A '+str(action)
+        act_msg = str(action)
         self.socket.send(act_msg.encode("utf-8"))
         data = self.socket.recv()
         res = np.frombuffer(data, dtype=np.float32)
@@ -85,12 +64,13 @@ class HaliteEnv(gym.Env):
         try:
             socket.close()
         except:
-            e = 1
+            pass
         context = zmq.Context()
         self.socket = context.socket(zmq.PAIR)
         rnd_num = str(np.random.random())
-        rnd_port = self.socket.bind("ipc:///tmp/v{}".format(rnd_num))
-        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={}" "python3 bots/Bot2.py" &'.format(rnd_num)
+        self.socket.bind("ipc:///tmp/v{}".format(rnd_num))
+        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={}" "python3 bots/Bot2.py" &'.format(
+            rnd_num)
         self.res = psutil.Popen(
             cmd, shell=True)
 
@@ -151,7 +131,7 @@ dqn = DQNAgent(
         # each worker will have a replay buffer of this size.
         "buffer_size": 50000,
         # If True prioritized replay buffer will be used.
-        "prioritized_replay": False,
+        "prioritized_replay": True,
         # Alpha parameter for prioritized replay buffer.
         "prioritized_replay_alpha": 0.6,
         # Beta parameter for sampling from prioritized replay buffer.
@@ -200,7 +180,7 @@ if os.path.exists(CHECKPOINT_FILE):
 
 # Serving and training loop
 while True:
-    dqn.train()
+    print(pretty_print(dqn.train()))
     checkpoint_path = dqn.save()
     print("Last checkpoint", checkpoint_path)
     with open(CHECKPOINT_FILE, "w") as f:
