@@ -9,7 +9,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import zmq
 from gym import spaces
-from ray.rllib.agents.dqn import DQNAgent
+from ray.rllib.agents.dqn import ApexAgent
 from ray.rllib.models import Model, ModelCatalog
 from ray.rllib.models.misc import get_activation_fn, normc_initializer
 from ray.tune.logger import pretty_print
@@ -114,71 +114,40 @@ class ParametricActionsModel(Model):
         return ouput_mask, last_layer
 
 
-ray.init(redis_address='localhost:6379')
-ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
-register_env("halite_env", env_creator)
-dqn = DQNAgent(
-    env="halite_env",
-    config={
-        "env_config": {},
-        # Use a single process to avoid needing to set up a load balancer
-        "num_workers": 1,
-        "num_cpus_per_worker": 1,
-        "num_envs_per_worker": 1,
-        "num_gpus": 0,
-        "hiddens": [],
-        "schedule_max_timesteps": 100000000,
-        # Number of env steps to optimize for before returning
-        "timesteps_per_iteration": 1000,
-        # Fraction of entire training period over which the exploration rate is
-        # annealed
-        "exploration_fraction": 0.8,
-        # Final value of random action probability
-        "exploration_final_eps": 0.02,
-        # Update the target network every `target_network_update_freq` steps.
-        "target_network_update_freq": 500,
-
-        # === Replay buffer ===
-        # Size of the replay buffer. Note that if async_updates is set, then
-        # each worker will have a replay buffer of this size.
-        "buffer_size": 50000,
-        # If True prioritized replay buffer will be used.
-        "prioritized_replay": True,
-        # Alpha parameter for prioritized replay buffer.
-        "prioritized_replay_alpha": 0.6,
-        # Beta parameter for sampling from prioritized replay buffer.
-        "prioritized_replay_beta": 0.4,
-        # Fraction of entire training period over which the beta parameter is
-        # annealed
-        "beta_annealing_fraction": 0.2,
-        # Final value of beta
-        "final_prioritized_replay_beta": 0.4,
-        # Epsilon to add to the TD errors when updating priorities.
-        "prioritized_replay_eps": 1e-6,
-        # Whether to LZ4 compress observations
-        "compress_observations": True,
-
-        # === Optimization ===
-        # Learning rate for adam optimizer
-        "lr": 1e-3,
-        # Adam epsilon hyper parameter
-        "adam_epsilon": 1e-8,
-        # If not None, clip gradients during optimization at this value
-        "grad_norm_clipping": 40,
-        # How many steps of the model to sample before learning starts.
-        "learning_starts": 1000,
-        # Update the replay buffer with this many samples at once. Note that
-        # this setting applies per-worker if num_workers > 1.
-        "sample_batch_size": 4,
-        # Size of a batched sampled from replay buffer for training. Note that
-        # if async_updates is set, then each worker returns gradients for a
-        # batch of this size.
-        "train_batch_size": 32,
+APEX_DEFAULT_CONFIG = merge_dicts(
+    DQN_CONFIG,  # see also the options in dqn.py, which are also supported
+    {
+        "optimizer_class": "AsyncReplayOptimizer",
+        "optimizer": merge_dicts(
+            DQN_CONFIG["optimizer"], {
+                "max_weight_sync_delay": 400,
+                "num_replay_buffer_shards": 4,
+                "debug": False
+            }),
+        "n_step": 3,
+        "num_gpus": 1,
+        "num_workers": 32,
+        "buffer_size": 2000000,
+        "learning_starts": 50000,
+        "train_batch_size": 512,
+        "sample_batch_size": 50,
+        "target_network_update_freq": 500000,
+        "timesteps_per_iteration": 25000,
+        "per_worker_exploration": True,
+        "worker_side_prioritization": True,
+        "min_iter_time_s": 30,
         "model": {
             "custom_model": "parametric",
             "custom_options": {},  # extra options to pass to your model
         }
-    })
+    },
+)
+ray.init(redis_address="localhost:6379")
+ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
+register_env("halite_env", env_creator)
+dqn = ApexAgent(
+    env="halite_env",
+    config=APEX_DEFAULT_CONFIG)
 
 # Attempt to restore from checkpoint if possible.
 if os.path.exists(CHECKPOINT_FILE):
