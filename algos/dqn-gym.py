@@ -69,7 +69,7 @@ class HaliteEnv(gym.Env):
         self.socket = context.socket(zmq.PAIR)
         rnd_num = str(np.random.random())
         self.socket.bind("ipc:///tmp/v{}".format(rnd_num))
-        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3 bots/networking.py --port={}" "python3 bots/Bot2.py" &'.format(
+        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 bots/networking.py --port={}" "python3.6 bots/Bot2.py" &'.format(
             rnd_num)
         self.res = psutil.Popen(
             cmd, shell=True)
@@ -103,7 +103,7 @@ class ParametricActionsModel(Model):
         return ouput_mask, last_layer
 
 
-ray.init()
+ray.init(redis_address="localhost:6379")
 ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
 register_env("halite_env", env_creator)
 dqn = DQNAgent(
@@ -113,7 +113,7 @@ dqn = DQNAgent(
         # Use a single process to avoid needing to set up a load balancer
         "num_workers": 0,
         "num_cpus_per_worker": 1,
-        "num_gpus": 0,
+        "num_gpus": 1,
         "hiddens": [],
         "schedule_max_timesteps": 100000000,
         # Number of env steps to optimize for before returning
