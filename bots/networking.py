@@ -84,7 +84,7 @@ args = parser.parse_args()
 context = zmq.Context()
 socket = context.socket(zmq.PAIR)
 socket.connect("ipc:///tmp/v{}".format(args.port))
-
+socket.setsockopt(zmq.RCVTIMEO, 5000)
 
 # Start Up Game
 #logger.info('Established Connection Networking.py')
@@ -95,12 +95,12 @@ game.update_frame()
 # Spawn Ship and Start new turn
 game.end_turn([game.me.shipyard.spawn()])
 game.update_frame()
-i = 0
+
 # Send first observation to reset
 for ship in game.me.get_ships():
     halite_ship = ship.halite_amount
 reward_base = game.me.halite_amount+.01*halite_ship
-with open(os.path.join(os.getcwd(), 'bots/encoder.pkl'), 'rb') as f:
+with open('/home/abisulco/Halite/bots/encoder.pkl', 'rb') as f:
     tf = pickle.load(f)
 obs = get_obs(game, tf)
 res = np.ones(7)
@@ -111,7 +111,6 @@ socket.send(new_ar.tostring())
 
 
 while True:
-    i += 1
     # RX Action and Peform
     data = socket.recv(24).decode()
     action = int(data)
