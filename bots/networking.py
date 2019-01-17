@@ -12,6 +12,7 @@ import hlt
 from hlt import constants
 from hlt.positionals import Position
 import pickle
+HOST = '127.0.0.1'
 
 
 def cleanup():
@@ -21,9 +22,10 @@ def cleanup():
     valid_mask = is_valid_move(game)
     new_ar = np.hstack((obs, valid_mask))
     send_obs = np.append(new_ar, [0, 1]).astype(np.float32)
-    socket.send(send_obs.tostring())
+    logger.debug(f'NETWORKING DONE: +')
+    s.sendall(send_obs.tostring())
     game.end_turn(command_queue)
-    socket.close()
+    s.close()
     sys.exit(1)
 
 
@@ -75,67 +77,76 @@ def is_valid_move(game):
     return action_mask
 
 
+logger = logging.getLogger('lapp')
+logger.setLevel(logging.DEBUG)
+# create file handler which logs even debug messages
+fh = logging.FileHandler('lamp.log')
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
+
+
 # ARGPARSE
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", help="Ports IP", default=9900, type=str)
 args = parser.parse_args()
 
-# Socket Stuff
-context = zmq.Context()
-socket = context.socket(zmq.PAIR)
-socket.connect("ipc:///tmp/v{}".format(args.port))
-socket.setsockopt(zmq.RCVTIMEO, 5000)
-
-# Start Up Game
-#logger.info('Established Connection Networking.py')
-game = hlt.Game()
-game.ready("Ray-BOT-Networking-V4")
-game.update_frame()
-
-# Spawn Ship and Start new turn
-game.end_turn([game.me.shipyard.spawn()])
-game.update_frame()
-
-# Send first observation to reset
-for ship in game.me.get_ships():
-    halite_ship = ship.halite_amount
-reward_base = game.me.halite_amount+.01*halite_ship
-with open('/home/abisulco/Halite/bots/encoder.pkl', 'rb') as f:
-    tf = pickle.load(f)
-obs = get_obs(game, tf)
-res = np.ones(7)
-res[6] = 0
-res[5] = 0
-new_ar = np.hstack((obs, res)).astype(np.float32)
-socket.send(new_ar.tostring())
-
-
-while True:
-    # RX Action and Peform
-    data = socket.recv(24).decode()
-    action = int(data)
-
-    # Update Constants and get next actions
-    me = game.me
-    game_map = game.game_map
-    command_queue = []
-    for ship in me.get_ships():
-        command_queue.append(get_func(ship, action, me))
-    # Check if last turn if so run cleanup
-    if game.turn_number == constants.MAX_TURNS:
-        cleanup()
-
-    # End the turn and update commands
-    game.end_turn(command_queue)
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect((HOST, int(args.port)))
+    # Start Up Game
+    #logger.info('Established Connection Networking.py')
+    game = hlt.Game()
+    game.ready("Ray-BOT-Networking-V4")
     game.update_frame()
 
-    # Send next valid observations
-    for ship in me.get_ships():
+    # Spawn Ship and Start new turn
+    game.end_turn([game.me.shipyard.spawn()])
+    game.update_frame()
+
+    # Send first observation to reset
+    for ship in game.me.get_ships():
         halite_ship = ship.halite_amount
-    reward = (game.me.halite_amount+.01*halite_ship)-reward_base
-    reward_base = reward
+    reward_base = game.me.halite_amount+.01*halite_ship
+    with open('bots/encoder.pkl', 'rb') as f:
+        tf = pickle.load(f)
     obs = get_obs(game, tf)
-    valid_mask = is_valid_move(game)
-    new_ar = np.hstack((obs, valid_mask))
-    send_obs = np.append(new_ar, [reward, 0]).astype(np.float32)
-    socket.send(send_obs.tostring())
+    res = np.ones(7)
+    res[6] = 0
+    res[5] = 0
+    new_ar = np.hstack((obs, res)).astype(np.float32)
+    s.sendall(new_ar.tostring())
+    logger.debug(f'{len(new_ar.tostring())}')
+    i = 0
+    while True:
+        logger.debug(f'TURN {i}')
+        i += 1
+        # RX Action and Peform
+        data = s.recv(1).decode()
+        action = int(data)
+        logger.debug(f'NETWORKING ACTION: {action}')
+        # Update Constants and get next actions
+        me = game.me
+        game_map = game.game_map
+        command_queue = []
+        for ship in me.get_ships():
+            command_queue.append(get_func(ship, action, me))
+        # Check if last turn if so run cleanup
+        if game.turn_number == constants.MAX_TURNS:
+            cleanup()
+        logger.debug(command_queue)
+        # End the turn and update commands
+        game.end_turn(command_queue)
+
+        game.update_frame()
+
+        # Send next valid observations
+        for ship in me.get_ships():
+            halite_ship = ship.halite_amount
+        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
+        reward_base = reward
+        obs = get_obs(game, tf)
+        valid_mask = is_valid_move(game)
+        new_ar = np.hstack((obs, valid_mask))
+        send_obs = np.append(new_ar, [reward, 0]).astype(np.float32)
+        logger.debug(f'NETWORKING OBS: {send_obs}')
+        logger.debug(f'NETWORKING DONE: -')
+        s.sendall(send_obs.tostring())

@@ -15,8 +15,10 @@ from ray.rllib.models.misc import get_activation_fn, normc_initializer
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 import logging
-
+import socket
 CHECKPOINT_FILE = "last_checkpoint.out"
+HOST = '127.0.0.1'
+PORT = 0
 
 
 def env_creator(env_config):
@@ -36,34 +38,29 @@ class HaliteEnv(gym.Env):
 
     def step(self, action):
         act_msg = str(action)
-        self.socket.send(act_msg.encode("utf-8"))
-        try:
-            data = self.socket.recv()
-
-            res = np.frombuffer(data, dtype=np.float32)
-            obs = res[:27]
-            mask = res[27:34]
-            reward = res[-2]
-            done = res[-1]
-            done = True if done == 1 else False
-        except:
-            obs = np.zeros(27)
-            mask = np.ones(7)
-            mask[-1] = 0
-            mask[-2] = 0
-            reward = 0
-            done = True
-
+        #logger.debug(f'GYM Action: {action} {len(act_msg.encode("utf-8"))}')
+        self.conn.sendall(act_msg.encode("utf-8"))
+        data = self.conn.recv(272)
+        res = np.frombuffer(data, dtype=np.float32)
+        #logger.debug(f'GYM OBS: {res}')
+        obs = res[:27]
+        mask = res[27:34]
+        reward = res[-2]
+        done = res[-1]
+        #logger.debug(f'GYM DONE: {done}')
+        done = True if done == 1 else False
         obs_ret = {
             "action_mask": mask,
             "real_obs": obs,
         }
+
         return obs_ret, reward, done, {}
 
     def reset(self):
         self.run_program()
-        data = self.socket.recv()
+        data = self.conn.recv(136)
         res = np.frombuffer(data, dtype=np.float32)
+        # .debug(f'GYM OBS: {res}')
         obs = res[:27]
         mask = res[27:34]
         obs_ret = {
@@ -73,17 +70,16 @@ class HaliteEnv(gym.Env):
         return obs_ret
 
     def establish_conn(self):
-        context = zmq.Context()
-        self.socket = context.socket(zmq.PAIR)
-        self.rnd_num = str(np.random.random())
-        self.socket.bind("ipc:///tmp/v{}".format(self.rnd_num))
-        self.socket.setsockopt(zmq.RCVTIMEO, 5000)
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.bind((HOST, PORT))
 
     def run_program(self):
-        cmd = '/home/abisulco/Halite/halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 /home/abisulco/Halite/bots/networking.py --port={}" "python3.6 /home/abisulco/Halite/bots/Bot2.py" &'.format(
-            self.rnd_num)
-        self.res = psutil.Popen(
-            cmd, shell=True)
+        #logger.debug('RUN -----------------------')
+        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 bots/networking.py --port={}" "python3.6 bots/Bot2.py" &'.format(
+            self.s.getsockname()[1])
+        self.res = psutil.Popen(cmd, shell=True)
+        self.s.listen(1)
+        self.conn, addr = self.s.accept()
 
 
 class ParametricActionsModel(Model):
@@ -114,7 +110,7 @@ class ParametricActionsModel(Model):
         return ouput_mask, last_layer
 
 
-ray.init(redis_address='localhost:6379')
+ray.init()
 ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
 register_env("halite_env", env_creator)
 dqn = DQNAgent(
@@ -122,9 +118,9 @@ dqn = DQNAgent(
     config={
         "env_config": {},
         # Use a single process to avoid needing to set up a load balancer
-        "num_workers": 1,
+        "num_workers": 4,
         "num_cpus_per_worker": 1,
-        "num_envs_per_worker": 1,
+        "num_envs_per_worker": 5,
         "num_gpus": 0,
         "hiddens": [],
         "schedule_max_timesteps": 100000000,
