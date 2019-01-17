@@ -1,3 +1,4 @@
+
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -38,13 +39,16 @@ class HaliteEnv(gym.Env):
 
     def step(self, action):
         act_msg = str(action)
+        #logger.debug(f'GYM Action: {action} {len(act_msg.encode("utf-8"))}')
         self.conn.sendall(act_msg.encode("utf-8"))
         data = self.conn.recv(272)
         res = np.frombuffer(data, dtype=np.float32)
+        #logger.debug(f'GYM OBS: {res}')
         obs = res[:27]
         mask = res[27:34]
         reward = res[-2]
         done = res[-1]
+        #logger.debug(f'GYM DONE: {done}')
         done = True if done == 1 else False
         obs_ret = {
             "action_mask": mask,
@@ -77,7 +81,8 @@ class HaliteEnv(gym.Env):
         self.s.bind(self.server_address)
 
     def run_program(self):
-        cmd = '/home/abisulco/Halite/halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 /home/abisulco/Halite/bots/networking.py --port={}" "python3.6 /home/abisulco/Halite/bots/Bot2.py" &'.format(
+        #logger.debug('RUN -----------------------')
+        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout "python3.6 bots/networking.py --port={}" "python3.6 bots/Bot2.py" &'.format(
             self.server_address)
         self.res = psutil.Popen(cmd, shell=True)
         self.s.listen(1)
@@ -112,7 +117,7 @@ class ParametricActionsModel(Model):
         return ouput_mask, last_layer
 
 
-ray.init("localhost:6379")
+ray.init(local_mode=True)
 ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
 register_env("halite_env", env_creator)
 dqn = DQNAgent(
@@ -120,17 +125,10 @@ dqn = DQNAgent(
     config={
         "env_config": {},
         # Use a single process to avoid needing to set up a load balancer
-<<<<<<< HEAD
-        "num_workers": 8,
+        "num_workers": 1,
         "num_cpus_per_worker": 1,
         "num_envs_per_worker": 1,
-        "num_gpus": 1,
-=======
-        "num_workers": 6,
-        "num_cpus_per_worker": 1,
-        "num_envs_per_worker": 4,
         "num_gpus": 0,
->>>>>>> acbaea2232febf99b0cf3f193408144bb2153fa3
         "hiddens": [],
         "schedule_max_timesteps": 100000000,
         # Number of env steps to optimize for before returning
@@ -191,14 +189,9 @@ if os.path.exists(CHECKPOINT_FILE):
     print("Restoring from checkpoint path", checkpoint_path)
     dqn.restore(checkpoint_path)
 
-# run the new command using the given tracer
 
-# make a report, placing output in the current directory
-
-# Serving and training loop
-while True:
-    print(pretty_print(dqn.train()))
-    checkpoint_path = dqn.save()
-    print("Last checkpoint", checkpoint_path)
-    with open(CHECKPOINT_FILE, "w") as f:
-        f.write(checkpoint_path)
+env1 = HaliteEnv({})
+obs = env1.reset()
+done = False
+while not done:
+    obs, reward, done, _ = env1.step(dqn.compute_action(obs))
