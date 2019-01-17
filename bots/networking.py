@@ -5,7 +5,6 @@ import socket
 import sys
 
 import numpy as np
-import zmq
 from sklearn.decomposition import TruncatedSVD
 
 import hlt
@@ -96,7 +95,8 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     for ship in game.me.get_ships():
         halite_ship = ship.halite_amount
     reward_base = game.me.halite_amount+.01*halite_ship
-    with open('/home/abisulco/Halite/bots/encoder.pkl', 'rb') as f:
+    dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    with open(os.path.join(dir_path, 'bots', 'encoder.pkl'), 'rb') as f:
         tf = pickle.load(f)
     obs = get_obs(game, tf)
     res = np.ones(7)

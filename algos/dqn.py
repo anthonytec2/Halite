@@ -7,19 +7,20 @@ from ray.rllib.models import ModelCatalog
 from ray.tune.logger import pretty_print
 from ray.tune.registry import register_env
 
-from algos.gym_halite import env_creator
-from algos.model import ParametricActionsModel
+from gym_halite import env_creator
+from model import ParametricActionsModel
 
 CHECKPOINT_FILE = "last_checkpoint.out"
 
-ray.init(local_mode=True)
+
+ray.init("localhost:6379")
 ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
 register_env("halite_env", env_creator)
 dqn = DQNAgent(
     env="halite_env",
     config={
         "env_config": {},
-        "num_workers": 1,
+        "num_workers": 8,
         "num_cpus_per_worker": 1,
         "num_envs_per_worker": 1,
         "num_gpus": 1,
@@ -41,8 +42,14 @@ if os.path.exists(CHECKPOINT_FILE):
     print("Restoring from checkpoint path", checkpoint_path)
     dqn.restore(checkpoint_path)
 
-env1 = env_creator({})
-obs = env1.reset()
-done = False
-while not done:
-    obs, reward, done, _ = env1.step(dqn.compute_action(obs))
+# run the new command using the given tracer
+
+# make a report, placing output in the current directory
+
+# Serving and training loop
+while True:
+    print(pretty_print(dqn.train()))
+    checkpoint_path = dqn.save()
+    print("Last checkpoint", checkpoint_path)
+    with open(CHECKPOINT_FILE, "w") as f:
+        f.write(checkpoint_path)
