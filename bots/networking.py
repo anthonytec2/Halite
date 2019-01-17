@@ -87,11 +87,11 @@ logger.addHandler(fh)
 
 # ARGPARSE
 parser = argparse.ArgumentParser()
-parser.add_argument("--port", help="Ports IP", default=9900, type=str)
+parser.add_argument("--port", help="Ports IP", default="", type=str)
 args = parser.parse_args()
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((HOST, int(args.port)))
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.connect(args.port)
     # Start Up Game
     #logger.info('Established Connection Networking.py')
     game = hlt.Game()

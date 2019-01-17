@@ -70,13 +70,19 @@ class HaliteEnv(gym.Env):
         return obs_ret
 
     def establish_conn(self):
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.bind((HOST, PORT))
+        self.server_address = f'/tmp/v-{np.random.random()}'
+        try:
+            os.unlink(self.server_address)
+        except OSError:
+            if os.path.exists(self.server_address):
+                raise
+        self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.s.bind(self.server_address)
 
     def run_program(self):
         #logger.debug('RUN -----------------------')
         cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 bots/networking.py --port={}" "python3.6 bots/Bot2.py" &'.format(
-            self.s.getsockname()[1])
+            self.server_address)
         self.res = psutil.Popen(cmd, shell=True)
         self.s.listen(1)
         self.conn, addr = self.s.accept()
@@ -118,9 +124,9 @@ dqn = DQNAgent(
     config={
         "env_config": {},
         # Use a single process to avoid needing to set up a load balancer
-        "num_workers": 4,
+        "num_workers": 6,
         "num_cpus_per_worker": 1,
-        "num_envs_per_worker": 5,
+        "num_envs_per_worker": 4,
         "num_gpus": 0,
         "hiddens": [],
         "schedule_max_timesteps": 100000000,
@@ -131,7 +137,7 @@ dqn = DQNAgent(
         "exploration_fraction": 0.8,
         # Final value of random action probability
         "exploration_final_eps": 0.02,
-        # Update the target network every `target_network_update_freq` steps.
+        # Update the target network every `target_network_update_freq` steps.serrv
         "target_network_update_freq": 500,
 
         # === Replay buffer ===
