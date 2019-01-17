@@ -38,16 +38,13 @@ class HaliteEnv(gym.Env):
 
     def step(self, action):
         act_msg = str(action)
-        #logger.debug(f'GYM Action: {action} {len(act_msg.encode("utf-8"))}')
         self.conn.sendall(act_msg.encode("utf-8"))
         data = self.conn.recv(272)
         res = np.frombuffer(data, dtype=np.float32)
-        #logger.debug(f'GYM OBS: {res}')
         obs = res[:27]
         mask = res[27:34]
         reward = res[-2]
         done = res[-1]
-        #logger.debug(f'GYM DONE: {done}')
         done = True if done == 1 else False
         obs_ret = {
             "action_mask": mask,
@@ -70,13 +67,18 @@ class HaliteEnv(gym.Env):
         return obs_ret
 
     def establish_conn(self):
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.bind((HOST, PORT))
+        self.server_address = f'/tmp/v-{np.random.random()}'
+        try:
+            os.unlink(self.server_address)
+        except OSError:
+            if os.path.exists(self.server_address):
+                raise
+        self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.s.bind(self.server_address)
 
     def run_program(self):
-        #logger.debug('RUN -----------------------')
-        cmd = './halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 bots/networking.py --port={}" "python3.6 bots/Bot2.py" &'.format(
-            self.s.getsockname()[1])
+        cmd = '/home/abisulco/Halite/halite --replay-directory replays/ -vvv --width 32 --height 32 --no-timeout --no-logs --no-replay "python3.6 /home/abisulco/Halite/bots/networking.py --port={}" "python3.6 /home/abisulco/Halite/bots/Bot2.py" &'.format(
+            self.server_address)
         self.res = psutil.Popen(cmd, shell=True)
         self.s.listen(1)
         self.conn, addr = self.s.accept()
@@ -110,7 +112,7 @@ class ParametricActionsModel(Model):
         return ouput_mask, last_layer
 
 
-ray.init()
+ray.init("localhost:6379")
 ModelCatalog.register_custom_model("parametric", ParametricActionsModel)
 register_env("halite_env", env_creator)
 dqn = DQNAgent(
@@ -118,10 +120,10 @@ dqn = DQNAgent(
     config={
         "env_config": {},
         # Use a single process to avoid needing to set up a load balancer
-        "num_workers": 4,
+        "num_workers": 8,
         "num_cpus_per_worker": 1,
-        "num_envs_per_worker": 5,
-        "num_gpus": 0,
+        "num_envs_per_worker": 1,
+        "num_gpus": 1,
         "hiddens": [],
         "schedule_max_timesteps": 100000000,
         # Number of env steps to optimize for before returning
@@ -131,7 +133,7 @@ dqn = DQNAgent(
         "exploration_fraction": 0.8,
         # Final value of random action probability
         "exploration_final_eps": 0.02,
-        # Update the target network every `target_network_update_freq` steps.
+        # Update the target network every `target_network_update_freq` steps.serrv
         "target_network_update_freq": 500,
 
         # === Replay buffer ===
