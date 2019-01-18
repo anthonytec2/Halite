@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# Python 3.6
 
 # Import the Halite SDK, which will let you interact with the game.
 import hlt
@@ -17,7 +15,6 @@ import random
 #   (print statements) are reserved for the engine-bot communication.
 import logging
 import numpy as np
-""" <<<Game Begin>>> """
 
 # This game object contains the initial game state.
 game = hlt.Game()
@@ -30,7 +27,6 @@ game.ready("MyPythonBot2")
 #   Here, you log here your id, which you can always fetch from the game object by using my_id.
 logging.info("Successfully created bot! My Player ID is {}.".format(game.my_id))
 
-""" <<<Game Loop>>> """
 
 while True:
     # This loop handles each turn of the game. The game object changes every turn, and you refresh that state by
