@@ -128,7 +128,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         for ship in me.get_ships():
             halite_ship = ship.halite_amount
         reward = (game.me.halite_amount+.01*halite_ship)-reward_base
-        reward_base = reward
+        reward_base += reward
         obs = get_obs(game, tf)
         valid_mask = is_valid_move(game)
         new_ar = np.hstack((obs, valid_mask))
