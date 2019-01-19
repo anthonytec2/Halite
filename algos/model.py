@@ -12,7 +12,7 @@ class ParametricActionsModel(Model):
         obs = input_dict["obs"]["real_obs"]
         # Standard FC net component.
         last_layer = obs
-        hiddens = [20, 20, 15, 15, 10, 10, 9, 9]
+        hiddens = [512, 256, 128, 32, 16, 10, 9, 9]
         # hiddens = [256, 256]
         for i, size in enumerate(hiddens):
             label = "fc{}".format(i)

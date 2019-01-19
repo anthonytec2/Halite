@@ -10,27 +10,29 @@ PORT = 0
 
 
 def env_creator(env_config):
-    return HaliteEnv({})
+    return HaliteEnv(env_config)
 
 
 class HaliteEnv(gym.Env):
 
     def __init__(self, config):
+        self.num_actions = config['action']
+        self.num_obs = config['obs']
         input_obs = spaces.Dict({
-            "action_mask": spaces.Box(low=0, high=1, shape=(7, ), dtype=np.float32),
-            "real_obs": spaces.Box(low=0, high=1, shape=(27, ), dtype=np.float32),
+            "action_mask": spaces.Box(low=0, high=1, shape=(self.num_actions, ), dtype=np.float32),
+            "real_obs": spaces.Box(low=0, high=5000, shape=(self.num_obs, ), dtype=np.float32),
         })
-        self.action_space = spaces.Discrete(7)
+        self.action_space = spaces.Discrete(self.num_actions)
         self.observation_space = input_obs
-        self.establish_conn()
+        self.establish_conn()        
 
     def step(self, action):
         act_msg = str(action)
         self.conn.sendall(act_msg.encode("utf-8"))
-        data = self.conn.recv(272)
+        data = self.conn.recv(8*(self.num_obs+self.num_actions)+2)
         res = np.frombuffer(data, dtype=np.float32)
-        obs = res[:27]
-        mask = res[27:34]
+        obs = res[:self.num_obs]
+        mask = res[self.num_obs:self.num_obs+self.num_actions]
         reward = res[-2]
         done = res[-1]
         done = True if done == 1 else False
@@ -43,11 +45,10 @@ class HaliteEnv(gym.Env):
 
     def reset(self):
         self.run_program()
-        data = self.conn.recv(136)
+        data = self.conn.recv(8*(self.num_obs+self.num_actions)+2)
         res = np.frombuffer(data, dtype=np.float32)
-        # .debug(f'GYM OBS: {res}')
-        obs = res[:27]
-        mask = res[27:34]
+        obs = res[:self.num_obs]
+        mask = res[self.num_obs:self.num_obs+self.num_actions]
         obs_ret = {
             "action_mask": mask,
             "real_obs": obs,

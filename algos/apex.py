@@ -37,7 +37,9 @@ APEX_DEFAULT_CONFIG = merge_dicts(
         "model": {
             "custom_model": "parametric",
             "custom_options": {},  # extra options to pass to your model
-        }
+        },
+        "env_config": {'action': 7,
+                       'obs': 1024+7},
     },
 )
 ray.init(redis_address="localhost:6379")
