@@ -20,9 +20,9 @@ dqn = DQNAgent(
     env="halite_env",
     config={
         "env_config": {'action': 7,
-                       'obs': 1024+7},
+                       'obs': 1024+7,
+                       'alpha': .55},
         "num_workers": 8,
-
         "num_cpus_per_worker": 1,
         "num_envs_per_worker": 20,
         "num_gpus": 1,

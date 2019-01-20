@@ -16,8 +16,9 @@ def env_creator(env_config):
 class HaliteEnv(gym.Env):
 
     def __init__(self, config):
-        self.num_actions = config['action']
-        self.num_obs = config['obs']
+        self.config=config
+        self.num_actions = self.config['action']
+        self.num_obs = self.config['obs']
         input_obs = spaces.Dict({
             "action_mask": spaces.Box(low=0, high=1, shape=(self.num_actions, ), dtype=np.float32),
             "real_obs": spaces.Box(low=0, high=5000, shape=(self.num_obs, ), dtype=np.float32),
@@ -67,7 +68,7 @@ class HaliteEnv(gym.Env):
 
     def run_program(self):
         dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        cmd = f"{os.path.join(dir_path,'halite')} --replay-directory {os.path.join(dir_path,'replays')} -vvv --width 32 --height 32 --no-timeout --no-logs 'python3.6 {os.path.join(dir_path,'bots','networking.py')} --port={self.server_address}' 'python3.6 {os.path.join(dir_path,'bots','Bot2.py')}' &"
+        cmd = f"{os.path.join(dir_path,'halite')} --replay-directory {os.path.join(dir_path,'replays')} -vvv --width 32 --height 32 --no-timeout --no-logs 'python3.6 {os.path.join(dir_path,'bots','networking.py')} --port={self.server_address} --alpha={self.config['alpha']}' 'python3.6 {os.path.join(dir_path,'bots','Bot2.py')}' &"
         self.res = psutil.Popen(cmd, shell=True)
         self.s.listen(1)
         self.conn, _ = self.s.accept()

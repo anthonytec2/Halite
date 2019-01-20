@@ -79,6 +79,7 @@ def is_valid_move(game):
 # ARGPARSE
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", help="Ports IP", default="", type=str)
+parser.add_argument("--alpha", help="Float for data", default=.1, type=float)
 args = parser.parse_args()
 
 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -95,7 +96,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
     # Send first observation to reset
     for ship in game.me.get_ships():
         halite_ship = ship.halite_amount
-    reward_base = game.me.halite_amount+.01*halite_ship
+    reward_base = game.me.halite_amount+args.alpha*halite_ship
     dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     with open(os.path.join(dir_path, 'bots', 'encoder.pkl'), 'rb') as f:
         tf = pickle.load(f)
@@ -128,7 +129,7 @@ with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
         # Send next valid observations
         for ship in me.get_ships():
             halite_ship = ship.halite_amount
-        reward = (game.me.halite_amount+.01*halite_ship)-reward_base
+        reward = (game.me.halite_amount+args.alpha*halite_ship)-reward_base
         reward_base += reward
         obs = get_obs(game, tf)
         valid_mask = is_valid_move(game)
