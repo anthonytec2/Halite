@@ -57,5 +57,10 @@ tune.run_experiments({
         "run": ApexAgent,
         "env": "halite_env",
         "config": APEX_DEFAULT_CONFIG,
+        "stop": {"timesteps_total": 7500000},
+        #"resources_per_trial": {"cpu": 32, "gpu": 1},
+        "checkpoint_freq": 5 ,
+        "checkpoint_at_end": True,
+        
     },
-})
+}, queue_trials=True)
