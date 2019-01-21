@@ -24,7 +24,7 @@ APEX_DEFAULT_CONFIG = merge_dicts(
             }),
         "n_step": 3,
         "num_gpus": 1,
-        "num_workers": 32,
+        "num_workers": 12,
         "buffer_size": 2000000,
         "learning_starts": 50000,
         "train_batch_size": 512,
